@@ -140,7 +140,7 @@ sc_bool _sc_transaction_validate_modify_elements(sc_list const * elements_list)
     sc_element_data * current_data = sc_element_data_new();
     sc_storage_get_element_data_by_addr(element_addr, current_data);
 
-    if (_sc_transaction_validate_data(snapshot, current_data))
+    if (!_sc_transaction_validate_data(snapshot, current_data))
     {
       return SC_FALSE;
     }
@@ -151,10 +151,13 @@ sc_bool _sc_transaction_validate_modify_elements(sc_list const * elements_list)
 
 sc_bool sc_transaction_validate(sc_transaction * txn)
 {
-  if (sc_hash_table_size(txn->elements) == 0)
+  if (sc_hash_table_size(txn->elements) == 0) {
+    return SC_TRUE;
+  }
+
+  if (!_sc_transaction_validate_modify_elements(txn->transaction_buffer->modified_elements)) {
     return SC_FALSE;
-  if (!_sc_transaction_validate_modify_elements(txn->transaction_buffer->modified_elements))
-    return SC_FALSE;
+  }
 
   return SC_TRUE;
 }
@@ -178,6 +181,8 @@ void _sc_transaction_apply_modified_elements(sc_list const * elements_list, sc_u
 
     sc_version_segment_add(element->version_history, new_version);
   }
+
+  sc_iterator_destroy(it);
 }
 
 void _sc_transaction_apply_deleted_elements(sc_list const * elements_list, sc_memory_context * ctx)
@@ -190,6 +195,7 @@ void _sc_transaction_apply_deleted_elements(sc_list const * elements_list, sc_me
 
     sc_memory_element_free(ctx, element_addr);
   }
+  sc_iterator_destroy(it);
 }
 
 void sc_transaction_apply(sc_transaction const * txn)

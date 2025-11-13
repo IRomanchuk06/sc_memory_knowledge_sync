@@ -24,6 +24,8 @@ typedef GHashTable sc_hash_table;
 
 #define sc_hash_table_remove(table, key) g_hash_table_remove(table, key)
 
+#define sc_hash_table_contains(table, key) g_hash_table_contains(table, key)
+
 #define sc_hash_table_default_hash_func g_direct_hash
 
 #define sc_hash_table_default_equal_func g_direct_equal

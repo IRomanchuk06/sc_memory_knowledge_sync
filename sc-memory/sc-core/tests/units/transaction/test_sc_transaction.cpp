@@ -50,17 +50,9 @@ TEST_F(ScTransactionTest, TransactionElementRemove)
   EXPECT_TRUE(sc_transaction_element_remove(transaction, &addr));
 
   constexpr sc_uint32 addr_hash = SC_ADDR_LOCAL_TO_INT(addr);
-  sc_iterator * it = sc_list_iterator(transaction->transaction_buffer->deleted_elements);
-  sc_bool found = SC_FALSE;
-  while (sc_iterator_next(it))
-  {
-    if (reinterpret_cast<uintptr_t>(sc_iterator_get(it)) == addr_hash)
-    {
-      found = SC_TRUE;
-      break;
-    }
-  }
-  sc_iterator_destroy(it);
+  void * key = (void *)(uintptr_t)addr_hash;
+  
+  sc_bool found = sc_hash_table_contains(transaction->transaction_buffer->deleted_elements, key);
   EXPECT_TRUE(found);
 
   EXPECT_FALSE(sc_transaction_element_remove(nullptr, &addr));
@@ -77,20 +69,11 @@ TEST_F(ScTransactionTest, TransactionElementContentSet)
   EXPECT_TRUE(sc_transaction_element_content_set(transaction, &addr, stream));
 
   constexpr sc_uint32 addr_hash = SC_ADDR_LOCAL_TO_INT(addr);
-  sc_iterator * it = sc_list_iterator(transaction->transaction_buffer->content_changes);
-  sc_bool found = SC_FALSE;
-  while (sc_iterator_next(it))
-  {
-    sc_pair * pair = static_cast<sc_pair *>(sc_iterator_get(it));
-    if (reinterpret_cast<uintptr_t>(pair->first) == addr_hash)
-    {
-      EXPECT_EQ(pair->second, stream);
-      found = SC_TRUE;
-      break;
-    }
-  }
-  sc_iterator_destroy(it);
-  EXPECT_TRUE(found);
+  void * key = (void *)(uintptr_t)addr_hash;
+  
+  void * value = sc_hash_table_get(transaction->transaction_buffer->content_changes, key);
+  EXPECT_NE(value, nullptr);
+  EXPECT_EQ(value, stream);
 
   EXPECT_FALSE(sc_transaction_element_content_set(nullptr, &addr, stream));
   EXPECT_FALSE(sc_transaction_element_content_set(transaction, nullptr, stream));

@@ -5,13 +5,14 @@
 #include <sc-core/sc-container/sc_list.h>
 #include <sc-core/sc_stream.h>
 #include <sc-core/sc-base/sc_monitor.h>
+#include <sc-store/sc-container/sc_hash_table.h>
 
 typedef struct sc_transaction_buffer
 {
-  sc_list * new_elements;
-  sc_list * modified_elements;
-  sc_list * deleted_elements;
-  sc_list * content_changes;
+  sc_hash_table * new_elements;
+  sc_hash_table * modified_elements;
+  sc_hash_table * deleted_elements;
+  sc_hash_table * content_changes;
   sc_uint64 transaction_id;
 } sc_transaction_buffer;
 

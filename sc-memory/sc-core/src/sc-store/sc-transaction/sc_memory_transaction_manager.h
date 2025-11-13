@@ -34,17 +34,12 @@ void sc_memory_transaction_shutdown();
 sc_memory_transaction_manager * sc_memory_transaction_manager_get();
 // return transaction manager
 
-sc_transaction * sc_memory_transaction_new(sc_memory_context * ctx);
-// create a new empty sc-transaction
-sc_result sc_memory_transaction_commit(sc_transaction * txn);
-// try to commit transaction (queue->execute->commit)
-
 void sc_transaction_manager_transaction_add(sc_transaction * txn);
 // add transaction to the queue and start operations when the thread is ready
 void sc_transaction_manager_transaction_execute(sc_transaction * txn);
 // execute the transaction and wait till it's finished
 
-void sc_transaction_handler();
+void * sc_transaction_handler(void * data);
 // method for transaction queue processing by threads
 
 void sc_transaction_manager_destroy();

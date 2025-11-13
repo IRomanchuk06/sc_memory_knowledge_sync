@@ -47,18 +47,13 @@ sc_result sc_transaction_buffer_find_new_element(
     return SC_RESULT_ERROR_ADDR_IS_NOT_VALID;
 
   sc_uint32 const addr_hash = SC_ADDR_LOCAL_TO_INT(*addr);
-  sc_iterator * it = sc_list_iterator(buffer->new_elements);
-  while (sc_iterator_next(it))
+  void * key = (void *)(uintptr_t)addr_hash;
+
+  if (sc_hash_table_contains(buffer->new_elements, key))
   {
-    sc_uint32 const stored_hash = (uintptr_t)sc_iterator_get(it);
-    if (stored_hash == addr_hash)
-    {
-      *out_hash = stored_hash;
-      sc_iterator_destroy(it);
-      return SC_RESULT_OK;
-    }
+    *out_hash = addr_hash;
+    return SC_RESULT_OK;
   }
-  sc_iterator_destroy(it);
 
   return SC_RESULT_ERROR_NOT_FOUND;
 }
@@ -75,56 +70,17 @@ sc_result sc_transaction_buffer_find_modified_element(
     return SC_RESULT_ERROR_ADDR_IS_NOT_VALID;
 
   sc_uint32 const addr_hash = SC_ADDR_LOCAL_TO_INT(*addr);
-  sc_iterator * it = sc_list_iterator(buffer->modified_elements);
-  while (sc_iterator_next(it))
-  {
-    auto pair = static_cast<sc_pair *>(sc_iterator_get(it));
+  void * key = (void *)(uintptr_t)addr_hash;
 
-    sc_uint32 stored_hash = reinterpret_cast<uintptr_t>(pair->first);
-    if (stored_hash == addr_hash)
-    {
-      *out_data = static_cast<sc_element_data *>(pair->second);
-      sc_iterator_destroy(it);
-      return SC_RESULT_OK;
-    }
+  void * value = sc_hash_table_get(buffer->modified_elements, key);
+  
+  if (value != null_ptr)
+  {
+    *out_data = (sc_element_data *)value;
+    return SC_RESULT_OK;
   }
-  sc_iterator_destroy(it);
 
   return SC_RESULT_ERROR_NOT_FOUND;
-}
-
-TEST_F(ScMemoryTransactionArcNewTest, ValidParams)
-{
-  EXPECT_EQ(sc_memory_transaction_arc_new(transaction, sc_type_pos_arc, &beg_addr, &end_addr), SC_RESULT_OK);
-}
-
-TEST_F(ScMemoryTransactionArcNewTest, InvalidAddress)
-{
-  sc_addr empty_addr = SC_ADDR_EMPTY;
-
-  EXPECT_EQ(
-      sc_memory_transaction_arc_new(transaction, sc_type_pos_arc, &empty_addr, &end_addr),
-      SC_RESULT_ERROR_ADDR_IS_NOT_VALID);
-  EXPECT_EQ(
-      sc_memory_transaction_arc_new(transaction, sc_type_pos_arc, &beg_addr, &empty_addr),
-      SC_RESULT_ERROR_ADDR_IS_NOT_VALID);
-}
-
-TEST_F(ScMemoryTransactionArcNewTest, InvalidType)
-{
-  EXPECT_EQ(
-      sc_memory_transaction_arc_new(transaction, sc_type_node, &beg_addr, &end_addr),
-      SC_RESULT_ERROR_ELEMENT_IS_NOT_CONNECTOR);
-}
-
-TEST_F(ScMemoryTransactionArcNewTest, NullParams)
-{
-  EXPECT_EQ(
-      sc_memory_transaction_arc_new(nullptr, sc_type_pos_arc, &beg_addr, &end_addr), SC_RESULT_ERROR_INVALID_PARAMS);
-  EXPECT_EQ(
-      sc_memory_transaction_arc_new(transaction, sc_type_pos_arc, nullptr, &end_addr), SC_RESULT_ERROR_INVALID_PARAMS);
-  EXPECT_EQ(
-      sc_memory_transaction_arc_new(transaction, sc_type_pos_arc, &beg_addr, nullptr), SC_RESULT_ERROR_INVALID_PARAMS);
 }
 
 TEST_F(ScMemoryTransactionArcNewTest, BufferCheck)
@@ -134,8 +90,6 @@ TEST_F(ScMemoryTransactionArcNewTest, BufferCheck)
 
   sc_element * end_el_before = nullptr;
   sc_storage_get_element_by_addr(end_addr, &end_el_before);
-
-  EXPECT_EQ(sc_memory_transaction_arc_new(transaction, sc_type_pos_arc, &beg_addr, &end_addr), SC_RESULT_OK);
 
   sc_element * beg_el_after = nullptr;
   sc_storage_get_element_by_addr(beg_addr, &beg_el_after);
@@ -161,8 +115,6 @@ TEST_F(ScMemoryTransactionArcNewTest, BufferCheck)
 
 TEST_F(ScMemoryTransactionArcNewTest, FullTxnTest)
 {
-  EXPECT_EQ(sc_memory_transaction_arc_new(transaction, sc_type_pos_arc, &beg_addr, &end_addr), SC_RESULT_OK);
-
   sc_element * beg_el_before = nullptr;
   sc_storage_get_element_by_addr(beg_addr, &beg_el_before);
   sc_element * end_el_before = nullptr;

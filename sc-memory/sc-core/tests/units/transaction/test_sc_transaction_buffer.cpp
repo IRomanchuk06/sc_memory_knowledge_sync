@@ -55,14 +55,15 @@ TEST_F(ScTransactionBufferTest, RemovedAddTest)
 {
   constexpr sc_addr addr = {1, 1};
   EXPECT_TRUE(sc_transaction_buffer_removed_add(buffer, &addr));
-  EXPECT_EQ(buffer->deleted_elements->size, 1u);
+  
+  EXPECT_EQ(sc_hash_table_size(buffer->deleted_elements), 1u);
 
   sc_uint32 addr_hash = SC_ADDR_LOCAL_TO_INT(addr);
-  EXPECT_EQ(reinterpret_cast<uintptr_t>(buffer->deleted_elements->begin->data), addr_hash);
+  void * key = (void *)(uintptr_t)addr_hash;
+  EXPECT_TRUE(sc_hash_table_contains(buffer->deleted_elements, key));
 
-  // Test duplicate addition
   EXPECT_TRUE(sc_transaction_buffer_removed_add(buffer, &addr));
-  EXPECT_EQ(buffer->deleted_elements->size, 1u); // Size should not increase
+  EXPECT_EQ(sc_hash_table_size(buffer->deleted_elements), 1u);
 }
 
 TEST_F(ScTransactionBufferTest, ModifiedAddTest)
@@ -87,11 +88,15 @@ TEST_F(ScTransactionBufferTest, ModifiedAddTest)
   };
 
   EXPECT_TRUE(sc_transaction_buffer_modified_add(buffer, &addr, &new_data));
-  EXPECT_EQ(buffer->modified_elements->size, 1u);
+  
+  EXPECT_EQ(sc_hash_table_size(buffer->modified_elements), 1u);
 
   sc_uint32 const addr_hash = SC_ADDR_LOCAL_TO_INT(addr);
-  auto const pair = static_cast<sc_pair*>(buffer->modified_elements->begin->data);
-  EXPECT_EQ(reinterpret_cast<uintptr_t>(pair->first), addr_hash);
+  void * key = (void *)(uintptr_t)addr_hash;
+  sc_element_data * stored_data = static_cast<sc_element_data*>(sc_hash_table_get(buffer->modified_elements, key));
+  
+  EXPECT_NE(stored_data, nullptr);
+  EXPECT_EQ(stored_data->incoming_arcs_count, new_data.incoming_arcs_count);
 }
 
 TEST_F(ScTransactionBufferTest, ContentSetTest)
@@ -101,42 +106,22 @@ TEST_F(ScTransactionBufferTest, ContentSetTest)
   ASSERT_NE(stream, nullptr);
 
   EXPECT_TRUE(sc_transaction_buffer_content_set(buffer, &addr, stream));
-  EXPECT_EQ(buffer->content_changes->size, 1u);
+  
+  EXPECT_EQ(sc_hash_table_size(buffer->content_changes), 1u);
 
   constexpr sc_uint32 addr_hash = SC_ADDR_LOCAL_TO_INT(addr);
-  sc_iterator* it = sc_list_iterator(buffer->content_changes);
-  sc_bool found = SC_FALSE;
+  void * key = (void *)(uintptr_t)addr_hash;
+  sc_stream * stored_stream = static_cast<sc_stream*>(sc_hash_table_get(buffer->content_changes, key));
+  
+  EXPECT_NE(stored_stream, nullptr);
+  EXPECT_EQ(stored_stream, stream);
 
-  while (sc_iterator_next(it))
-  {
-    sc_pair* pair = static_cast<sc_pair*>(sc_iterator_get(it));
-    if (reinterpret_cast<uintptr_t>(pair->first) == addr_hash)
-    {
-      EXPECT_EQ(pair->second, stream);
-      found = SC_TRUE;
-      break;
-    }
-  }
-  sc_iterator_destroy(it);
-  EXPECT_TRUE(found);
-
-  // Test content update
   sc_stream* new_stream = sc_stream_memory_new("new_test", 8, SC_STREAM_FLAG_READ, SC_FALSE);
   EXPECT_TRUE(sc_transaction_buffer_content_set(buffer, &addr, new_stream));
-  EXPECT_EQ(buffer->content_changes->size, 1u); // Size should not increase
+  
+  EXPECT_EQ(sc_hash_table_size(buffer->content_changes), 1u);
 
-  it = sc_list_iterator(buffer->content_changes);
-  found = SC_FALSE;
-  while (sc_iterator_next(it))
-  {
-    auto const pair = static_cast<sc_pair*>(sc_iterator_get(it));
-    if (reinterpret_cast<uintptr_t>(pair->first) == addr_hash)
-    {
-      EXPECT_EQ(pair->second, new_stream);
-      found = SC_TRUE;
-      break;
-    }
-  }
-  sc_iterator_destroy(it);
-  EXPECT_TRUE(found);
+  stored_stream = static_cast<sc_stream*>(sc_hash_table_get(buffer->content_changes, key));
+  EXPECT_NE(stored_stream, nullptr);
+  EXPECT_EQ(stored_stream, new_stream);
 }

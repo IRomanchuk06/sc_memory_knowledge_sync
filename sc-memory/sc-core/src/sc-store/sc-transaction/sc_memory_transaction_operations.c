@@ -142,3 +142,28 @@ sc_addr sc_memory_transaction_element_free(sc_transaction const * txn, sc_addr c
   sc_transaction_element_remove(txn, &addr);
   return addr;
 }
+
+sc_transaction * sc_memory_transaction_new(sc_memory_context * ctx)
+{
+  if (!sc_memory_transaction_manager_is_initialized())
+  {
+    return null_ptr;
+  }
+
+  sc_memory_transaction_manager* manager = sc_memory_transaction_manager_get();
+
+  sc_mutex_lock(manager->mutex);
+  sc_uint64 const txn_id = manager->txn_count++;
+  sc_mutex_unlock(manager->mutex);
+
+  return sc_transaction_new(txn_id, ctx);
+}
+
+sc_result sc_memory_transaction_commit(sc_transaction * txn)
+{
+  if (txn == null_ptr)
+    return SC_RESULT_ERROR_INVALID_PARAMS;
+
+  sc_transaction_manager_transaction_add(txn);
+  return SC_RESULT_OK;
+}

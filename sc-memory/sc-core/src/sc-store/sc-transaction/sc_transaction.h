@@ -6,11 +6,17 @@
 #include <sc-store/sc-transaction/sc_transaction_buffer.h>
 #include <sc-core/sc_stream.h>
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum _sc_transaction_state
 {
   SC_TRANSACTION_PENDING,
   SC_TRANSACTION_EXECUTED,
-  SC_TRANSACTION_FAILED
+  SC_TRANSACTION_FAILED,
+  SC_TRANSACTION_COMMITTED
 } sc_transaction_state;
 
 typedef struct sc_transaction
@@ -47,5 +53,9 @@ void sc_transaction_apply(sc_transaction const * txn);
 // apply all operations (merged versions, allocated spaces) to sc-memory
 void sc_transaction_clear(sc_transaction * txn);
 // deletes all transaction items and clears them without performing a commit
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
