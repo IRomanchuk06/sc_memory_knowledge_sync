@@ -4,6 +4,7 @@
 #include "sc-core/sc_memory.h"
 #include "sc-store/sc_storage_private.h"
 
+// Create a new node inside a transaction and register it in the transaction buffer
 sc_addr sc_memory_transaction_node_new(sc_transaction const * txn, sc_type const type)
 {
   if (txn == null_ptr)
@@ -16,6 +17,7 @@ sc_addr sc_memory_transaction_node_new(sc_transaction const * txn, sc_type const
   return allocated_addr;
 }
 
+// Create a new link inside a transaction and register it in the transaction buffer
 sc_addr sc_memory_transaction_link_new(sc_transaction const * txn)
 {
   if (txn == null_ptr)
@@ -28,6 +30,7 @@ sc_addr sc_memory_transaction_link_new(sc_transaction const * txn)
   return allocated_addr;
 }
 
+// Create a new arc inside a transaction, update incident elements and register all changes in the buffer
 sc_addr sc_memory_transaction_arc_new(
     sc_transaction const * txn,
     sc_type const type,
@@ -55,12 +58,14 @@ sc_addr sc_memory_transaction_arc_new(
     return SC_ADDR_EMPTY;
   }
 
+  // Local snapshots of begin/end elements that will be modified by this arc
   sc_element_data new_beg_ver_val;
   sc_element_data new_end_ver_val;
 
   sc_element_data * new_beg_ver = &new_beg_ver_val;
   sc_element_data * new_end_ver = &new_end_ver_val;
 
+  // Allocate underlying storage element for the arc
   sc_element * arc_el = sc_storage_allocate_new_element(txn->ctx, &connector_addr);
   if (arc_el == null_ptr)
   {
@@ -74,7 +79,7 @@ sc_addr sc_memory_transaction_arc_new(
   sc_bool const is_edge = sc_type_has_subtype(type, sc_type_common_edge);
   sc_bool const is_not_loop = SC_ADDR_IS_NOT_EQUAL(*beg_addr, *end_addr);
 
-  // try to lock begin and end elements
+  // Acquire write locks for both incident elements to safely update their adjacency lists
   sc_monitor * beg_monitor =
       sc_monitor_table_get_monitor_for_addr(sc_memory_transaction_manager_get()->monitor_table, *beg_addr);
   sc_monitor * end_monitor =
@@ -86,6 +91,7 @@ sc_addr sc_memory_transaction_arc_new(
   if (end_monitor == null_ptr)
     return SC_ADDR_EMPTY;
 
+  // Take current snapshots of begin/end elements before modifications
   result = sc_storage_get_element_data_by_addr(*beg_addr, new_beg_ver);
   if (result != SC_RESULT_OK)
     goto error;
@@ -94,7 +100,7 @@ sc_addr sc_memory_transaction_arc_new(
   if (result != SC_RESULT_OK)
     goto error;
 
-  // lock arcs to change output/input list
+  // Attach arc to begin/end elements, updating outgoing/incoming arc lists
   sc_storage_make_elements_incident_to_arc(
       connector_addr,
       arc_el,
@@ -104,6 +110,7 @@ sc_addr sc_memory_transaction_arc_new(
       (sc_element *)new_end_ver,
       SC_FALSE,
       !is_not_loop);
+  // For edges, also attach symmetric direction if this is not a loop
   if (is_edge && is_not_loop)
     sc_storage_make_elements_incident_to_arc(
         connector_addr,
@@ -116,10 +123,12 @@ sc_addr sc_memory_transaction_arc_new(
         SC_FALSE);
 
 #ifdef SC_OPTIMIZE_SEARCHING_INCOMING_CONNECTORS_FROM_STRUCTURES
+  // Maintain additional structure-specific incoming arc index if optimization is enabled
   if (sc_type_is_structure_and_arc(new_beg_ver->flags.type, type))
     sc_storage_update_structure_arcs(connector_addr, arc_el, *beg_addr, *end_addr, (sc_element *)new_end_ver);
 #endif
 
+  // Register newly created arc and updated incident elements in the transaction buffer
   sc_transaction_element_new(txn, &connector_addr);
   sc_transaction_element_change(txn, beg_addr, new_beg_ver);
   sc_transaction_element_change(txn, end_addr, new_end_ver);
@@ -129,11 +138,13 @@ sc_addr sc_memory_transaction_arc_new(
   return connector_addr;
 
 error:
+  // Roll back arc allocation on error before releasing locks
   sc_storage_free_element(connector_addr);
   sc_monitor_release_write_n(2, beg_monitor, end_monitor);
   return connector_addr;
 }
 
+// Schedule element for deletion inside transaction; actual free is done on apply
 sc_addr sc_memory_transaction_element_free(sc_transaction const * txn, sc_addr const addr)
 {
   if (txn == null_ptr)
@@ -143,6 +154,7 @@ sc_addr sc_memory_transaction_element_free(sc_transaction const * txn, sc_addr c
   return addr;
 }
 
+// Create a new transaction object associated with the given context and unique id
 sc_transaction * sc_memory_transaction_new(sc_memory_context * ctx)
 {
   if (!sc_memory_transaction_manager_is_initialized())
@@ -152,6 +164,7 @@ sc_transaction * sc_memory_transaction_new(sc_memory_context * ctx)
 
   sc_memory_transaction_manager* manager = sc_memory_transaction_manager_get();
 
+  // Atomically allocate a new transaction id
   sc_mutex_lock(manager->mutex);
   sc_uint64 const txn_id = manager->txn_count++;
   sc_mutex_unlock(manager->mutex);
@@ -159,6 +172,7 @@ sc_transaction * sc_memory_transaction_new(sc_memory_context * ctx)
   return sc_transaction_new(txn_id, ctx);
 }
 
+// Enqueue transaction for asynchronous execution/commit by the transaction manager
 sc_result sc_memory_transaction_commit(sc_transaction * txn)
 {
   if (txn == null_ptr)

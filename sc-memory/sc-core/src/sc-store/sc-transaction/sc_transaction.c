@@ -11,10 +11,12 @@
 
 sc_transaction * sc_transaction_new(sc_uint64 const txn_id, sc_memory_context * ctx)
 {
+  // Allocate transaction object from custom allocator
   sc_transaction * txn = _sc_mem_new(sizeof(sc_transaction));
   if (txn == null_ptr)
     return null_ptr;
 
+  // Transaction must always be associated with a valid context
   if (ctx == null_ptr)
   {
     sc_mem_free(txn);
@@ -26,6 +28,7 @@ sc_transaction * sc_transaction_new(sc_uint64 const txn_id, sc_memory_context * 
   txn->ctx = ctx;
   txn->state = SC_TRANSACTION_PENDING;
 
+  // Per-transaction monitor for synchronization around transaction state and buffer
   txn->monitor = _sc_mem_new(sizeof(sc_monitor));
   if (txn->monitor == null_ptr)
   {
@@ -34,6 +37,7 @@ sc_transaction * sc_transaction_new(sc_uint64 const txn_id, sc_memory_context * 
   }
   sc_monitor_init(txn->monitor);
 
+  // Transaction-local buffer that stores all changes until commit/rollback
   txn->transaction_buffer = _sc_mem_new(sizeof(sc_transaction_buffer));
   if (txn->transaction_buffer == null_ptr)
   {
@@ -44,6 +48,7 @@ sc_transaction * sc_transaction_new(sc_uint64 const txn_id, sc_memory_context * 
   }
   sc_transaction_buffer_initialize(txn->transaction_buffer, txn_id);
 
+  // Hash-table that tracks all elements touched by this transaction (write set)
   txn->elements =
       sc_hash_table_init(sc_hash_table_default_hash_func, sc_hash_table_default_equal_func, null_ptr, null_ptr);
   if (txn->elements == null_ptr)
@@ -65,11 +70,13 @@ void sc_transaction_destroy(sc_transaction * txn)
   {
     if (txn->transaction_buffer != null_ptr)
     {
+      // Destroy all buffered changes and internal structures
       sc_transaction_buffer_destroy(txn->transaction_buffer);
       sc_mem_free(txn->transaction_buffer);
     }
     if (txn->elements != null_ptr)
     {
+      // Only destroys container, not elements in memory
       sc_hash_table_destroy(txn->elements);
     }
     if (txn->monitor != null_ptr)
@@ -81,6 +88,7 @@ void sc_transaction_destroy(sc_transaction * txn)
   }
 }
 
+// Compare two snapshots of sc_element_data to detect any modification
 sc_bool _sc_transaction_validate_data(sc_element_data const * data1, sc_element_data const * data2)
 {
   if (data1 == null_ptr || data2 == null_ptr)
@@ -123,27 +131,39 @@ sc_bool _sc_transaction_validate_data(sc_element_data const * data1, sc_element_
   return SC_TRUE;
 }
 
-sc_bool _sc_transaction_validate_modify_elements(sc_list const * elements_list)
+// Validate that all modified elements in the buffer are still equal to their snapshots
+// This is used as optimistic concurrency check before applying the transaction
+sc_bool _sc_transaction_validate_modify_elements(sc_hash_table const * elements_table)
 {
-  sc_iterator * it = sc_list_iterator(elements_list);
-  while (sc_iterator_next(it))
-  {
-    sc_pair const * pair = sc_iterator_get(it);
+  if (elements_table == null_ptr)
+    return SC_TRUE;
 
+  sc_hash_table_iterator iter;
+  void * key;
+  void * value;
+
+  sc_hash_table_iterator_init(&iter, (sc_hash_table *)elements_table);
+  while (sc_hash_table_iterator_next(&iter, &key, &value))
+  {
     sc_addr element_addr;
-    SC_ADDR_LOCAL_FROM_INT((uintptr_t)pair->first, element_addr);
-    sc_element_data const * snapshot = pair->second;
+    // Keys store local integer representation of sc_addr
+    SC_ADDR_LOCAL_FROM_INT((uintptr_t)key, element_addr);
+    sc_element_data const * snapshot = (sc_element_data const *)value;
 
     sc_element * element;
     sc_storage_get_element_by_addr(element_addr, &element);
 
+    // Take a fresh snapshot from storage and compare with buffered snapshot
     sc_element_data * current_data = sc_element_data_new();
     sc_storage_get_element_data_by_addr(element_addr, current_data);
 
     if (!_sc_transaction_validate_data(snapshot, current_data))
     {
+      sc_mem_free(current_data);
       return SC_FALSE;
     }
+
+    sc_mem_free(current_data);
   }
 
   return SC_TRUE;
@@ -151,59 +171,78 @@ sc_bool _sc_transaction_validate_modify_elements(sc_list const * elements_list)
 
 sc_bool sc_transaction_validate(sc_transaction * txn)
 {
-  if (sc_hash_table_size(txn->elements) == 0) {
+  // Fast path: transaction without any touched elements is always valid
+  if (sc_hash_table_size(txn->elements) == 0)
+  {
     return SC_TRUE;
   }
 
-  if (!_sc_transaction_validate_modify_elements(txn->transaction_buffer->modified_elements)) {
+  // Validate only modified elements; created/deleted do not require snapshot comparison
+  if (!_sc_transaction_validate_modify_elements(txn->transaction_buffer->modified_elements))
+  {
     return SC_FALSE;
   }
 
   return SC_TRUE;
 }
 
-void _sc_transaction_apply_modified_elements(sc_list const * elements_list, sc_uint64 const txn_id)
+// Apply new versions for all modified elements stored in the transaction buffer
+void _sc_transaction_apply_modified_elements(sc_hash_table const * elements_table, sc_uint64 const txn_id)
 {
-  sc_iterator * it = sc_list_iterator(elements_list);
-  while (sc_iterator_next(it))
-  {
-    sc_pair const * pair = sc_iterator_get(it);
+  if (elements_table == null_ptr)
+    return;
 
+  sc_hash_table_iterator iter;
+  void * key;
+  void * value;
+
+  sc_hash_table_iterator_init(&iter, (sc_hash_table *)elements_table);
+  while (sc_hash_table_iterator_next(&iter, &key, &value))
+  {
     sc_addr element_addr;
-    SC_ADDR_LOCAL_FROM_INT((uintptr_t)pair->first, element_addr);
+    SC_ADDR_LOCAL_FROM_INT((uintptr_t)key, element_addr);
 
     sc_element * element = null_ptr;
     sc_storage_get_element_by_addr(element_addr, &element);
 
-    sc_element_data const * new_data = pair->second;
+    sc_element_data const * new_data = (sc_element_data const *)value;
 
+    // Create a new version node in version chain for this element
     sc_element_version * new_version = sc_element_create_new_version(element, new_data, txn_id);
 
+    // Append version into corresponding version segment
     sc_version_segment_add(element->version_history, new_version);
   }
-
-  sc_iterator_destroy(it);
 }
 
-void _sc_transaction_apply_deleted_elements(sc_list const * elements_list, sc_memory_context * ctx)
+// Apply physical deletion of elements scheduled for removal by this transaction
+void _sc_transaction_apply_deleted_elements(sc_hash_table const * elements_table, sc_memory_context * ctx)
 {
-  sc_iterator * it = sc_list_iterator(elements_list);
-  while (sc_iterator_next(it))
+  if (elements_table == null_ptr)
+    return;
+
+  sc_hash_table_iterator iter;
+  void * key;
+  void * value;
+
+  sc_hash_table_iterator_init(&iter, (sc_hash_table *)elements_table);
+  while (sc_hash_table_iterator_next(&iter, &key, &value))
   {
     sc_addr element_addr;
-    SC_ADDR_LOCAL_FROM_INT((uintptr_t)sc_iterator_get(it), element_addr);
+    SC_ADDR_LOCAL_FROM_INT((uintptr_t)key, element_addr);
 
     sc_memory_element_free(ctx, element_addr);
   }
-  sc_iterator_destroy(it);
 }
 
+// Commit-time entry point: apply all buffered changes to underlying storage
 void sc_transaction_apply(sc_transaction const * txn)
 {
   _sc_transaction_apply_modified_elements(txn->transaction_buffer->modified_elements, txn->transaction_id);
   _sc_transaction_apply_deleted_elements(txn->transaction_buffer->deleted_elements, txn->ctx);
 }
 
+// Currently a no-op placeholder; can be extended to reset local state without destroying transaction
 void sc_transaction_clear(sc_transaction * txn) {}
 
 sc_bool sc_transaction_element_new(sc_transaction const * txn, sc_addr const * addr)
@@ -211,8 +250,10 @@ sc_bool sc_transaction_element_new(sc_transaction const * txn, sc_addr const * a
   if (txn == null_ptr || addr == null_ptr || txn->transaction_buffer == null_ptr)
     return SC_FALSE;
 
+  // Track element in transaction write set; value is unused, only presence matters
   sc_hash_table_insert(txn->elements, (void *)addr, null_ptr);
 
+  // Delegate actual bookkeeping to transaction buffer
   return sc_transaction_buffer_created_add(txn->transaction_buffer, addr);
 }
 
@@ -227,8 +268,10 @@ sc_bool sc_transaction_element_change(
   if (SC_ADDR_IS_EMPTY(*addr))
     return SC_FALSE;
 
+  // Remember that this element is part of transaction write set
   sc_hash_table_insert(txn->elements, (void *)addr, null_ptr);
 
+  // Store new snapshot in buffer for later validation and apply
   return sc_transaction_buffer_modified_add(txn->transaction_buffer, addr, new_data);
 }
 
@@ -242,6 +285,7 @@ sc_bool sc_transaction_element_remove(sc_transaction const * txn, sc_addr const 
 
   sc_hash_table_insert(txn->elements, (void *)addr, null_ptr);
 
+  // Mark element as deleted in transaction buffer
   return sc_transaction_buffer_removed_add(txn->transaction_buffer, addr);
 }
 
@@ -255,5 +299,6 @@ sc_bool sc_transaction_element_content_set(sc_transaction const * txn, sc_addr c
 
   sc_hash_table_insert(txn->elements, (void *)addr, null_ptr);
 
+  // Buffer link content updates; actual write happens on apply
   return sc_transaction_buffer_content_set(txn->transaction_buffer, addr, content);
 }

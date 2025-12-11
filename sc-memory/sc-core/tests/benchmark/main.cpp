@@ -1,5 +1,5 @@
 #include "benchmark/benchmark.h"
-#include "units/transaction/test_sc_transaction_operations.hpp"
+#include "units/transaction/test_sc_transaction_add_node.hpp"
 
 #include <chrono>
 #include <atomic>
@@ -53,111 +53,157 @@ void BM_MemoryThreaded(benchmark::State & state)
 }
 
 // =============== СОЗДАНИЕ УЗЛА ===============
-// 1000 итераций
+// Без транзакции - 1000 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestNodeNewDirect)
-->Threads(1)->Iterations(1000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(1000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
+// С транзакцией - 1000 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestNodeNewTransaction)
-->Threads(1)->Iterations(1000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(1000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
-// 5000 итераций
+// Без транзакции - 500 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestNodeNewDirect)
-->Threads(1)->Iterations(5000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(500)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
+// С транзакцией - 500 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestNodeNewTransaction)
-->Threads(1)->Iterations(5000)->Unit(benchmark::TimeUnit::kMicrosecond);
-
-// 10000 итераций
-BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestNodeNewDirect)
-->Threads(1)->Iterations(10000)->Unit(benchmark::TimeUnit::kMicrosecond);
-
-BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestNodeNewTransaction)
-->Threads(1)->Iterations(10000)->Unit(benchmark::TimeUnit::kMicrosecond);
-
-// 50000 итераций
-BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestNodeNewDirect)
-->Threads(1)->Iterations(50000)->Unit(benchmark::TimeUnit::kMicrosecond);
-
-BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestNodeNewTransaction)
-->Threads(1)->Iterations(50000)->Unit(benchmark::TimeUnit::kMicrosecond);
-
-// 100000 итераций
-BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestNodeNewDirect)
-->Threads(1)->Iterations(100000)->Unit(benchmark::TimeUnit::kMicrosecond);
-
-BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestNodeNewTransaction)
-->Threads(1)->Iterations(100000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(500)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
 // =============== СОЗДАНИЕ ДУГИ ===============
-// 1000 итераций
+// Без транзакции - 1000 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestArcNewDirect)
-->Threads(1)->Iterations(1000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(1000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
+// С транзакцией - 1000 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestArcNewTransaction)
-->Threads(1)->Iterations(1000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(1000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
-// 5000 итераций
+// Без транзакции - 500 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestArcNewDirect)
-->Threads(1)->Iterations(5000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(500)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
+// С транзакцией - 500 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestArcNewTransaction)
-->Threads(1)->Iterations(5000)->Unit(benchmark::TimeUnit::kMicrosecond);
-
-// 10000 итераций
-BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestArcNewDirect)
-->Threads(1)->Iterations(10000)->Unit(benchmark::TimeUnit::kMicrosecond);
-
-BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestArcNewTransaction)
-->Threads(1)->Iterations(10000)->Unit(benchmark::TimeUnit::kMicrosecond);
-
-// 50000 итераций
-BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestArcNewDirect)
-->Threads(1)->Iterations(50000)->Unit(benchmark::TimeUnit::kMicrosecond);
-
-BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestArcNewTransaction)
-->Threads(1)->Iterations(50000)->Unit(benchmark::TimeUnit::kMicrosecond);
-
-// 100000 итераций
-BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestArcNewDirect)
-->Threads(1)->Iterations(100000)->Unit(benchmark::TimeUnit::kMicrosecond);
-
-BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestArcNewTransaction)
-->Threads(1)->Iterations(100000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(500)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
 // =============== УДАЛЕНИЕ ЭЛЕМЕНТА ===============
-// 1000 итераций
+// Без транзакции - 1000 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestElementEraseDirect)
-->Threads(1)->Iterations(1000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(1000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
+// С транзакцией - 1000 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestElementEraseTransaction)
-->Threads(1)->Iterations(1000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(1000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
-// 5000 итераций
+// Без транзакции - 500 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestElementEraseDirect)
-->Threads(1)->Iterations(5000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(500)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
+// С транзакцией - 500 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestElementEraseTransaction)
-->Threads(1)->Iterations(5000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(500)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
-// 10000 итераций
+// =============== СОЗДАНИЕ УЗЛА ===============
+// Без транзакции - 5000 итераций
+BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestNodeNewDirect)
+->Threads(1)
+->Iterations(5000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
+
+// С транзакцией - 5000 итераций
+BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestNodeNewTransaction)
+->Threads(1)
+->Iterations(5000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
+
+// =============== СОЗДАНИЕ ДУГИ ===============
+// Без транзакции - 5000 итераций
+BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestArcNewDirect)
+->Threads(1)
+->Iterations(5000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
+
+// С транзакцией - 5000 итераций
+BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestArcNewTransaction)
+->Threads(1)
+->Iterations(5000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
+
+// =============== УДАЛЕНИЕ ЭЛЕМЕНТА ===============
+// Без транзакции - 5000 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestElementEraseDirect)
-->Threads(1)->Iterations(10000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(5000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
+// С транзакцией - 5000 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestElementEraseTransaction)
-->Threads(1)->Iterations(10000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(5000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
-// 50000 итераций
+// =============== СОЗДАНИЕ УЗЛА ===============
+// Без транзакции - 10000 итераций
+BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestNodeNewDirect)
+->Threads(1)
+->Iterations(10000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
+
+// С транзакцией - 10000 итераций
+BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestNodeNewTransaction)
+->Threads(1)
+->Iterations(10000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
+
+// =============== СОЗДАНИЕ ДУГИ ===============
+// Без транзакции - 10000 итераций
+BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestArcNewDirect)
+->Threads(1)
+->Iterations(10000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
+
+// С транзакцией - 10000 итераций
+BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestArcNewTransaction)
+->Threads(1)
+->Iterations(10000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
+
+// =============== УДАЛЕНИЕ ЭЛЕМЕНТА ===============
+// Без транзакции - 10000 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestElementEraseDirect)
-->Threads(1)->Iterations(50000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(10000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
+// С транзакцией - 10000 итераций
 BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestElementEraseTransaction)
-->Threads(1)->Iterations(50000)->Unit(benchmark::TimeUnit::kMicrosecond);
+->Threads(1)
+->Iterations(10000)
+->Unit(benchmark::TimeUnit::kMicrosecond);
 
-// 100000 итераций
-BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestElementEraseDirect)
-->Threads(1)->Iterations(100000)->Unit(benchmark::TimeUnit::kMicrosecond);
-
-BENCHMARK_TEMPLATE(BM_MemoryThreaded, TestElementEraseTransaction)
-->Threads(1)->Iterations(100000)->Unit(benchmark::TimeUnit::kMicrosecond);
 
 BENCHMARK_MAIN();
